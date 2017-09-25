@@ -1,0 +1,6 @@
+check migrate-machine input parameters
+fill migrateMachine msg
+exec command (actor-workflow-tool)
+add functional test
+remove go dep
+
