@@ -2,8 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 
+	"github.com/gorilla/mux"
+	"github.com/leapp-to/leapp-go/pkg/db"
 	"github.com/leapp-to/leapp-go/pkg/executor"
 )
 
@@ -64,4 +68,10 @@ func migrateMachineHandler(request *http.Request) (*executor.Command, error) {
 	c := executor.New("migrate-machine", actorInput)
 
 	return c, nil
+}
+
+func migrateMachineStatus(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	migrateID, _ := strconv.ParseUint(vars["migrateID"], 10, 64)
+	fmt.Fprintf(w, "data: %s", db.Get(uint32(migrateID)))
 }

@@ -69,7 +69,7 @@ func New(o *Options) *Handler {
 	apiV1 := h.mux.PathPrefix("/v1").Subrouter()
 
 	for _, e := range api.GetEndpoints() {
-		apiV1.HandleFunc(e.Endpoint, e.HandlerFunc).Methods(e.Method)
+		apiV1.Handle(e.Endpoint, e.Handler).Methods(e.Method)
 	}
 
 	return h

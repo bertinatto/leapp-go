@@ -3,10 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/leapp-to/leapp-go/pkg/executor"
+	"github.com/leapp-to/leapp-go/pkg/worker"
 )
 
 // CKey represents a key to be used in context.Context.
@@ -24,10 +24,9 @@ type Error struct {
 	Message string `json:"message,omitempty"`
 }
 
-// genericResponseHandler wraps the result of the endpoint handler into a reponse that should be sent to the client.
-func genericResponseHandler(fn func(*http.Request) (*executor.Command, error)) http.HandlerFunc {
+// asyncRunnerHandler wraps the result of the endpoint handler into a reponse that should be sent to the client.
+func asyncRunnerHandler(fn func(*http.Request) (*executor.Command, error)) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
 		encoder := json.NewEncoder(writer)
 		var result Result
 
@@ -40,73 +39,59 @@ func genericResponseHandler(fn func(*http.Request) (*executor.Command, error)) h
 			return
 		}
 
-		r := c.Execute()
+		id := worker.NewJob(c)
 
-		// If requested, log actor's stderr
-		v := request.Context().Value(CKey("Verbose")).(bool)
-		if v {
-			log.Printf("Actor stderr: %s\n", r.Stderr)
-		}
-
-		// Actor returned an exit code different from 0
-		if r.ExitCode != 0 {
-			msg := fmt.Sprintf("actor execution failed with: %d", r.ExitCode)
-			result.Errors = append(result.Errors, Error{2, msg})
-			encoder.Encode(result)
-			return
-		}
-
-		// Decode result from actor and send it back to client
-		var stdout interface{}
-		if err := json.Unmarshal([]byte(r.Stdout), &stdout); err != nil {
-			if r.Stdout == "" {
-				result.Errors = append(result.Errors, Error{3, "actor dint't return any data"})
-			} else {
-				e := fmt.Errorf("could not decode actor output: %v", err)
-				result.Errors = append(result.Errors, Error{3, e.Error()})
-			}
-			encoder.Encode(result)
-			return
-		}
-		result.Data = stdout
+		result.Data = map[string]uint32{"id": id}
 		encoder.Encode(result)
+
 	}
 }
 
 // EndpointEntry represents an endpoint exposed by the daemon.
 type EndpointEntry struct {
-	Method      string
-	Endpoint    string
-	HandlerFunc http.HandlerFunc
+	Method   string
+	Endpoint string
+	Handler  http.Handler
 }
 
 // GetEndpoints should return a slice of all endpoints that the daemon exposes.
 func GetEndpoints() []EndpointEntry {
 	return []EndpointEntry{
 		{
-			Method:      "POST",
-			Endpoint:    "/migrate-machine",
-			HandlerFunc: genericResponseHandler(migrateMachineHandler),
+			Method:   "POST",
+			Endpoint: "/migrate-machine",
+			Handler: Adapt(
+				asyncRunnerHandler(migrateMachineHandler),
+				AddHeader("Content-Type", "application/json"),
+			),
 		},
 		{
-			Method:      "POST",
-			Endpoint:    "/port-inspect",
-			HandlerFunc: genericResponseHandler(portInspectHandler),
+			Method:   "GET",
+			Endpoint: "/migrate-machine/{migrateID}",
+			Handler: Adapt(
+				http.HandlerFunc(migrateMachineStatus),
+				AddHeader("Content-Type", "application/json"),
+			),
 		},
-		{
-			Method:      "POST",
-			Endpoint:    "/check-target",
-			HandlerFunc: genericResponseHandler(checkTargetHandler),
-		},
-		{
-			Method:      "POST",
-			Endpoint:    "/port-map",
-			HandlerFunc: genericResponseHandler(portMapHandler),
-		},
-		{
-			Method:      "POST",
-			Endpoint:    "/destroy-container",
-			HandlerFunc: genericResponseHandler(destroyContainerHandler),
-		},
+		//{
+		//Method:      "POST",
+		//Endpoint:    "/port-inspect",
+		//HandlerFunc: asyncRunnerHandler(portInspectHandler),
+		//},
+		//{
+		//Method:      "POST",
+		//Endpoint:    "/check-target",
+		//HandlerFunc: asyncRunnerHandler(checkTargetHandler),
+		//},
+		//{
+		//Method:      "POST",
+		//Endpoint:    "/port-map",
+		//HandlerFunc: asyncRunnerHandler(portMapHandler),
+		//},
+		//{
+		//Method:      "POST",
+		//Endpoint:    "/destroy-container",
+		//HandlerFunc: asyncRunnerHandler(destroyContainerHandler),
+		//},
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/leapp-to/leapp-go/pkg/web"
+	"github.com/leapp-to/leapp-go/pkg/worker"
 )
 
 var (
@@ -46,6 +47,10 @@ func Main(up chan<- struct{}) int {
 	webHandler := web.New(&options)
 	log.Printf("Starting leapp-daemon at %s\n", options.ListenAddress)
 	go webHandler.Run()
+
+	// Start workers
+	// TODO: handle gracefull shutdown
+	worker.Start(5)
 
 	// Handle shutdown under different conditions
 	term := make(chan os.Signal, 1)
