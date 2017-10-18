@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/leapp-to/leapp-go/pkg/db"
 )
 
 func captureLog(f func()) string {
@@ -19,6 +21,8 @@ func captureLog(f func()) string {
 
 func TestStarts(t *testing.T) {
 	up := make(chan struct{})
+	//temporary - skip db.EnsureDbPath, db.Connect db.CreateTable
+	handleDb = func() *db.Database { return nil }
 
 	go Main(up)
 	select {
@@ -30,6 +34,8 @@ func TestStarts(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
+	//temporary - skip db.EnsureDbPath, db.Connect db.CreateTable
+	handleDb = func() *db.Database { return nil }
 	// This goroutine should start correctly
 	go Main(nil)
 
